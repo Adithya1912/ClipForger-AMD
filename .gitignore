@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build folders
+.next/
+dist/
+build/
+out/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.db
+*.db-shm
+*.db-wal
+.pytest_cache/
+.pytest_tmp/
+raw_videos/
+rendered/
+projects/
+data/
+backend/data/
+backend/uploads/
+backend/captioned/
+backend/normalized/
+backend/jobs/
+backend/.pytest-tmp/
+temp/
+review_*.jpg
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
