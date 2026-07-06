@@ -18,6 +18,57 @@ ClipForger-AMD is a focused Track 2 hackathon build for short-video captioning. 
 
 This is not a full video editor. Cropping, reframing, publishing, pricing, and creator-workflow features have been removed from the core path so the app maps directly to the Video Captioning challenge.
 
+## Track 2 Docker Submission
+
+The root `Dockerfile` is the judged Track 2 container. It starts `backend/track2_agent.py`, reads `/input/tasks.json`, writes `/output/results.json`, then exits.
+
+Expected input:
+
+```json
+[
+  {
+    "task_id": "v1",
+    "video_url": "https://storage.example.com/clips/clip1.mp4",
+    "styles": ["formal", "sarcastic", "humorous_tech", "humorous_non_tech"]
+  }
+]
+```
+
+Expected output:
+
+```json
+[
+  {
+    "task_id": "v1",
+    "captions": {
+      "formal": "...",
+      "sarcastic": "...",
+      "humorous_tech": "...",
+      "humorous_non_tech": "..."
+    }
+  }
+]
+```
+
+Build and push the public linux/amd64 image:
+
+```bash
+docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB_USERNAME/clipforger-amd:latest --push .
+```
+
+Local smoke test:
+
+```bash
+docker run --rm \
+  -e GROQ_API_KEY="$GROQ_API_KEY" \
+  -e LLM_PROVIDER=groq \
+  -v "$PWD/examples:/input:ro" \
+  -v "$PWD/out:/output" \
+  YOUR_DOCKERHUB_USERNAME/clipforger-amd:latest
+```
+
+For the local smoke test, copy `examples/track2_tasks.json` to `examples/tasks.json` first. The hackathon evaluator provides its own `/input/tasks.json` during judging.
+
 ## Architecture
 
 ```text
