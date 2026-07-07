@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from .caption_styles import STYLE_GUIDE
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from .caption_styles import STYLE_FEW_SHOT, STYLE_GUIDE, STYLE_SYSTEM_PROMPTS
 from .config import settings
 from .evaluator import heuristic_evaluation
 from .llm_client import caption_llm
@@ -17,6 +19,7 @@ def _evidence_pack(transcript: str | None, caption_track: list, visual_summary: 
     parts: list[str] = []
     if transcript and not transcript.startswith(NO_TRANSCRIPT):
         clean_lines = []
+        word_count = 0
         for segment in caption_track:
             text = " ".join(str(segment.text).split())
             if not text or text.startswith("["):
@@ -24,57 +27,87 @@ def _evidence_pack(transcript: str | None, caption_track: list, visual_summary: 
             if len(text.split()) < 3 and not text.endswith(("!", "?")):
                 continue
             clean_lines.append(f"{segment.start:.1f}-{segment.end:.1f}s: {text}")
-            if len(clean_lines) >= 18:
+            word_count += len(text.split())
+            if word_count >= 60:
                 break
         if clean_lines:
-            parts.append("Most reliable timed transcript evidence:\n" + "\n".join(clean_lines))
+            parts.append("Transcript (timed):\n" + "\n".join(clean_lines))
         else:
-            parts.append("Transcript evidence:\n" + transcript)
+            parts.append("Transcript:\n" + transcript)
+
+        sound_tags = [s.text for s in caption_track if s.text.startswith("[")]
+        if sound_tags:
+            parts.append("Audio events: " + ", ".join(set(sound_tags)))
     else:
-        parts.append("Transcript evidence unavailable.")
+        parts.append("Transcript unavailable.")
 
     if visual_summary and not visual_summary.startswith(NO_VISUAL_CONTEXT):
-        parts.append("Visual evidence:\n" + visual_summary)
+        lines = [l.strip() for l in visual_summary.strip().split("\n") if l.strip()]
+        summary_text = " ".join(lines)
+        parts.append("Visual analysis:\n" + summary_text)
     else:
-        parts.append("Visual evidence unavailable.")
+        parts.append("Visual analysis: unavailable.")
+
+    transcript_lower = (transcript or "").lower()
+    scene_keywords = {
+        "sports": ["race", "game", "match", "goal", "score", "player", "team", "track", "lap", "pit", "drive", "ball"],
+        "nature": ["tree", "forest", "garden", "animal", "bird", "flower", "mountain", "river", "ocean", "sky", "sun"],
+        "urban": ["street", "city", "building", "car", "traffic", "road", "sidewalk", "store", "office"],
+        "food": ["cook", "recipe", "kitchen", "food", "eat", "meal", "ingredient", "bake", "chef"],
+        "technology": ["computer", "screen", "phone", "code", "software", "data", "system", "app", "device", "robot"],
+        "people": ["person", "people", "man", "woman", "child", "group", "crowd", "family", "friend", "interview"],
+    }
+    detected = [k for k, v in scene_keywords.items() if any(w in transcript_lower for w in v)]
+    if detected:
+        parts.append("Scene category: " + ", ".join(detected))
+
     return "\n\n".join(parts)
 
 
-def _generation_prompt(transcript_context: str, visual_context: str, evidence_context: str) -> list[dict[str, str]]:
-    return [
-        {
-            "role": "system",
-            "content": (
-                "Return strict JSON only. Generate a video summary for each required style. "
-                "Also generate one styled caption for each style; this is a judged caption, not the subtitle track. "
-                "Each styled_caption should be 36-50 words, substantial enough to feel like a complete judged caption. "
-                "Each summary should be 80-110 words in 3-4 sentences describing what happens in the video in that style. "
-                "Stay accurate to the transcript and visual context. Do not invent facts. "
-                "Treat ASR as imperfect evidence: prefer named people, visible actions, and repeated clear phrases over garbled one-off words. "
-                "If a phrase is unclear, summarize it cautiously instead of quoting or building a joke around it. "
-                "Prioritize the evidence pack over the raw transcript when they conflict. "
-                "Never claim a person caused a crash, hit another car, died, or was injured unless the evidence explicitly says so. "
-                "If the clip involves a crash, fire, injury, death, panic, or rescue, keep humor restrained and never joke about a victim's pain, burning, injury, or death. "
-                "For serious scenes, aim jokes at strategy, confusion, timing, or narration instead of the harmed person. "
-                "Never describe API providers, placeholder text, prompts, or pipeline internals as clip content. "
-                "Use concrete evidence from the transcript or visual context in every output. "
-                "Tone must be unmistakable: formal is neutral, sarcastic is mean-but-not-hurtful and mocks the situation rather than a person's body, pain, identity, or trauma, humorous_tech uses software/AI metaphors, humorous_non_tech avoids tech jargon and may lightly tease a person's choices or overreaction without being cruel. "
-                "Keep rhetorical devices mutually exclusive: sarcastic uses irony and situational mockery with no tech metaphors; humorous_tech uses one software, AI, or engineering metaphor with no courtroom sarcasm; humorous_non_tech uses everyday playful teasing with no tech terms and no deadpan irony. "
-                "Sarcastic examples should feel dry and mildly biting, like mocking an overdramatic situation for treating a small problem like a major crisis. Avoid insults aimed at vulnerable people."
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Evidence pack:\n{evidence_context}\n\nRaw transcript:\n{transcript_context}\n\nVisual context:\n{visual_context}\n\n"
-                "Return JSON with exactly these keys: formal, sarcastic, humorous_tech, humorous_non_tech. "
-                "Each key must contain: styled_caption, summary, tone_notes, confidence. "
-                "styled_caption must be one complete sentence in the requested style, 36-50 words long. "
-                "summary must be 80-110 words, use 3-4 sentences, and include the clip's concrete action, dialogue, setting, and why the moment matters. "
-                "Avoid vague summaries like 'things happen' or 'the clip shows a moment'."
-            ),
-        },
+def _style_specific_prompt(
+    style: CaptionStyle,
+    transcript_context: str,
+    visual_context: str,
+    evidence_context: str,
+) -> list[dict[str, str]]:
+    system_prompt = STYLE_SYSTEM_PROMPTS[style]
+    few_shot = STYLE_FEW_SHOT.get(style, [])
+    messages = [
+        {"role": "system", "content": system_prompt + (
+            "\n\nReturn strict JSON only with these keys: styled_caption, summary, tone_notes, confidence. "
+            "styled_caption must be one complete sentence in the requested style, 36-50 words. "
+            "summary must be concise and under 100 words (ideally 40-70), as a single paragraph or 3-5 bullet points, covering the clip's key action and context."
+            "Stay accurate to the evidence. Do not invent facts. "
+            "Never mention transcripts, keyframes, APIs, pipelines, or internal details. "
+            "Treat ASR as imperfect evidence: prefer named people, visible actions, and repeated clear phrases. "
+            "If a phrase is unclear, summarize cautiously instead of quoting it. "
+            "Never claim a person caused a crash, hit another car, died, or was injured unless the evidence explicitly says so. "
+            "For serious scenes involving crashes, fire, or injury, keep humor restrained. "
+            "Use concrete evidence from the transcript or visual context in every output."
+        )},
     ]
+    for shot in few_shot:
+        messages.append(shot)
+    messages.append({
+        "role": "user",
+        "content": (
+            f"Evidence pack:\n{evidence_context}\n\nRaw transcript:\n{transcript_context}\n\nVisual context:\n{visual_context}\n\n"
+            f"Generate a {style.value} caption and summary."
+        ),
+    })
+    return messages
+
+
+def _generate_single_style(
+    style: CaptionStyle,
+    transcript_context: str,
+    visual_context: str,
+    evidence_context: str,
+    fallback_output: dict,
+) -> tuple[dict, str]:
+    prompt = _style_specific_prompt(style, transcript_context, visual_context, evidence_context)
+    raw, provider = caption_llm.complete_json(prompt, fallback_output)
+    return raw, provider
 
 
 def _fallback_style_output(style: CaptionStyle, transcript: str, visual_summary: str | None) -> dict[str, str | float]:
@@ -106,6 +139,24 @@ def _fallback_style_output(style: CaptionStyle, transcript: str, visual_summary:
     return {"styled_caption": styled_caption, "summary": summary, "tone_notes": STYLE_GUIDE[style], "confidence": 0.72}
 
 
+def _parallel_extract(video_path: str, output_dir, duration) -> tuple[Path | None, list[Path]]:
+    """Extract audio and keyframes in parallel."""
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        audio_future = ex.submit(extract_audio, video_path, output_dir)
+        frames_future = ex.submit(extract_keyframes, video_path, output_dir, duration)
+        return audio_future.result(), frames_future.result()
+
+
+def _parallel_understand(audio_path, video_path, duration, frames) -> tuple:
+    """Transcribe and describe frames in parallel."""
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        trans_future = ex.submit(transcribe, audio_path, video_path, duration)
+        vis_future = ex.submit(describe_frames, frames)
+        transcript, caption_track, trans_provider = trans_future.result()
+        visual_summary, vis_provider = vis_future.result()
+    return transcript, caption_track, trans_provider, visual_summary, vis_provider
+
+
 def generate_for_job(job_id: str) -> None:
     job = load_job(job_id)
     try:
@@ -131,15 +182,15 @@ def generate_for_job(job_id: str) -> None:
             save_job(job)
 
         job.progress = 30
-        job.message = "Extracting audio"
+        job.message = "Extracting audio and keyframes in parallel"
         save_job(job)
-        audio_path = extract_audio(job.video_path, settings.storage_dir / "uploads")
+        audio_path, frames = _parallel_extract(job.video_path, settings.storage_dir / "uploads", duration)
 
-        job.progress = 48
-        job.message = "Building transcript, timed captions, and factual base"
-        job.transcript, job.caption_track, job.transcript_provider = transcribe(audio_path, job.video_path, duration)
-        frames = extract_keyframes(job.video_path, settings.storage_dir / "uploads", duration)
-        job.visual_summary, job.visual_provider = describe_frames(frames)
+        job.progress = 40
+        job.message = "Transcribing and analyzing video in parallel"
+        save_job(job)
+        job.transcript, job.caption_track, job.transcript_provider, job.visual_summary, job.visual_provider = \
+            _parallel_understand(audio_path, job.video_path, duration, frames)
         job.caption_track = add_sound_tags(job.caption_track, duration, job.visual_summary)
         if job.transcript.startswith(NO_TRANSCRIPT):
             job.base_summary = "No transcript is available yet. Captions will rely on visual context if available."
@@ -151,6 +202,10 @@ def generate_for_job(job_id: str) -> None:
         job.message = "Rendering captioned video"
         rendered = render_captioned_video(job.video_path, job.caption_track, settings.storage_dir / "captioned", job.job_id)
         job.captioned_video_path = str(rendered) if rendered else None
+        save_job(job)
+
+        job.progress = 70
+        job.message = "Generating all 4 style captions in parallel"
         save_job(job)
 
         fallback = {style.value: _fallback_style_output(style, job.transcript, job.visual_summary) for style in CaptionStyle}
@@ -166,36 +221,59 @@ def generate_for_job(job_id: str) -> None:
             else job.visual_summary
         )
         evidence_context = _evidence_pack(job.transcript, job.caption_track, job.visual_summary)
-        prompt = _generation_prompt(transcript_context, visual_context, evidence_context)
-        raw, provider = caption_llm.complete_json(prompt, fallback)
-        job.generation_provider = provider
-        job.generation_diagnostics = caption_llm.last_provider_errors
 
-        style_outputs: list[StyleOutput] = []
-        for style in CaptionStyle:
-            item = raw.get(style.value, fallback[style.value])
-            styled_caption = str(item.get("styled_caption", fallback[style.value]["styled_caption"]))
+        provider_used = "unknown"
+        all_diagnostics: list[str] = []
+
+        def run_style(style: CaptionStyle) -> tuple[CaptionStyle, StyleOutput, str]:
+            raw, provider = _generate_single_style(style, transcript_context, visual_context, evidence_context, fallback[style.value])
+            item = raw if "styled_caption" in raw else raw.get(style.value, fallback[style.value])
+            styled_caption = str(item.get("styled_caption", item.get("caption", fallback[style.value]["styled_caption"])))
             summary = str(item.get("summary", fallback[style.value]["summary"]))
-            style_outputs.append(
-                StyleOutput(
-                    style=style,
-                    styled_caption=styled_caption,
-                    summary=summary,
-                    tone_notes=str(item.get("tone_notes", STYLE_GUIDE[style])),
-                    confidence=float(item.get("confidence", 0.75)),
-                    evaluation=heuristic_evaluation(style, styled_caption, summary, job.transcript),
-                )
+            output = StyleOutput(
+                style=style,
+                styled_caption=styled_caption,
+                summary=summary,
+                tone_notes=str(item.get("tone_notes", STYLE_GUIDE[style])),
+                confidence=float(item.get("confidence", 0.75)),
+                evaluation=heuristic_evaluation(style, styled_caption, summary, job.transcript),
             )
+            return style, output, provider
+
+        results: dict[CaptionStyle, StyleOutput] = {}
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(run_style, style): style for style in CaptionStyle}
+            for future in as_completed(futures):
+                try:
+                    style, output, provider = future.result()
+                    results[style] = output
+                    if provider != "local_fallback":
+                        provider_used = provider
+                    if caption_llm.last_provider_errors:
+                        all_diagnostics.extend(caption_llm.last_provider_errors)
+                except Exception:
+                    style = futures[future]
+                    results[style] = StyleOutput(
+                        style=style,
+                        styled_caption=str(fallback[style.value].get("styled_caption", "")),
+                        summary=str(fallback[style.value].get("summary", "")),
+                        tone_notes=STYLE_GUIDE[style],
+                        confidence=0.5,
+                        evaluation=heuristic_evaluation(style, fallback[style.value].get("styled_caption", ""), fallback[style.value].get("summary", ""), job.transcript or ""),
+                    )
+        style_outputs = [results[style] for style in CaptionStyle]
 
         job.style_outputs = style_outputs
+        job.generation_provider = provider_used
+        job.generation_diagnostics = all_diagnostics
         job.status = JobStatus.complete
         job.progress = 100
-        if provider == "local_fallback":
+        if provider_used == "local_fallback":
             job.message = "Captioned video and four styled outputs generated with local fallback"
-        elif job.generation_diagnostics:
-            job.message = f"Captioned video and four styled outputs generated with {provider} after provider fallback"
+        elif all_diagnostics:
+            job.message = f"Captioned video and four styled outputs generated with {provider_used} after provider fallback"
         else:
-            job.message = f"Captioned video and four styled outputs generated with {provider}"
+            job.message = f"Captioned video and four styled outputs generated with {provider_used}"
         save_job(job)
     except Exception as exc:
         job.status = JobStatus.failed
@@ -208,14 +286,17 @@ def generate_for_batch(batch_id: str) -> None:
     batch = load_batch(batch_id)
     try:
         batch.status = JobStatus.processing
-        batch.message = "Generating captioned videos and styled outputs for fixed clip set"
+        batch.message = "Generating captioned videos and styled outputs in parallel"
         save_batch(batch)
         total = max(1, len(batch.job_ids))
-        for index, job_id in enumerate(batch.job_ids, start=1):
-            generate_for_job(job_id)
-            batch.progress = int((index / total) * 100)
-            batch.message = f"Processed {index}/{total} clips"
-            save_batch(batch)
+        completed = 0
+        with ThreadPoolExecutor(max_workers=min(3, total)) as ex:
+            futures = {ex.submit(generate_for_job, jid): jid for jid in batch.job_ids}
+            for future in as_completed(futures):
+                completed += 1
+                batch.progress = int((completed / total) * 100)
+                batch.message = f"Processed {completed}/{total} clips"
+                save_batch(batch)
         failed = [load_job(job_id) for job_id in batch.job_ids if load_job(job_id).status == JobStatus.failed]
         batch.status = JobStatus.failed if failed else JobStatus.complete
         batch.message = f"Complete: {total - len(failed)}/{total} clips generated"

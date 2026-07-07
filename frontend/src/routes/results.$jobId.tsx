@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, Copy, Download, Film, Save } from "lucide-react";
+import { CheckCircle2, Copy, Download, Film, Gem, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   captionedVideoUrl,
@@ -69,6 +69,12 @@ function ResultsPage() {
     }
   }
 
+  const isNvidia = job?.generation_provider === "nvidia";
+  const isGemma = job?.generation_provider?.includes("gemma") || job?.generation_provider === "fireworks_gemma";
+  const isOpenRouter = job?.generation_provider === "openrouter";
+  const isGoogle = job?.generation_provider === "google";
+  const gemmaEnabled = isNvidia || isGemma || isOpenRouter || isGoogle;
+
   return (
     <main className="px-6 pb-24 md:px-12">
       <section className="mx-auto max-w-7xl pt-10">
@@ -78,8 +84,14 @@ function ResultsPage() {
             <h1 className="text-display mt-4 text-5xl font-extrabold md:text-7xl">
               Captioned video <span className="neon-text">ready</span>.
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {job?.filename ?? "Clip"} | subtitles, transcript/context, and four styled caption/summary outputs are preserved for export.
+            <p className="mt-3 flex flex-wrap items-center gap-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+              {job?.filename ?? "Clip"} | 4 style-specific captions
+              {gemmaEnabled && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-900/40 px-3 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald-400 border border-emerald-700/50">
+                  <Gem className="size-3" />
+                  {isNvidia ? "Gemma (NVIDIA)" : isGoogle ? "Google Gemini" : isOpenRouter ? "Gemma 4 (OpenRouter)" : "Powered by Gemma"}
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -187,7 +199,7 @@ function ResultsPage() {
                   <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Factual base</div>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">{job.base_summary}</p>
                   <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Fireworks-first routing | timed caption track | four judged style outputs
+                    Gemma-first routing | 7 keyframes for visual context | 4 style-specific LLM calls | timed caption track | four judged style outputs
                   </div>
                   <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
                     Provider diagnostics are preserved in JSON export.

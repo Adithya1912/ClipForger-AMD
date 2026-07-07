@@ -1,0 +1,69 @@
+{"kind":"deck","id":"pr/wf19xt","name":"Deck"}
+{"kind":"layout","layoutId":"69233079-7725-4dfc-992a-10aadd1c3a3f","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"58a1617a-3807-480d-b82f-e184c65f5a4e","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/hyzq3m","slide":1,"title":"AMD Developer Hackathon Track 2","textShapes":5}
+{"kind":"shape","id":"sh/032lszqt","slide":1,"bbox":[52,44,1176,632]}
+{"kind":"textbox","id":"sh/bi9s36hc","slide":1,"name":"eyebrow","text":"AMD Developer Hackathon Track 2","textPreview":"AMD Developer Hackathon Track 2","textChars":31,"textLines":1,"bbox":[84,82,420,28]}
+{"kind":"textbox","id":"sh/ixczed8v","slide":1,"name":"title","text":"ClipForger-AMD turns one clip into accurate captions and four styles.","textPreview":"ClipForger-AMD turns one clip into accurate captions and four styles.","textChars":69,"textLines":1,"bbox":[84,118,560,176]}
+{"kind":"textbox","id":"sh/p0bi9s36","slide":1,"name":"deck-sub","text":"A Fireworks-first, Gemma-ready video captioning pipeline with Groq fallback for reliability, designed for the Track 2 evaluator and packaged as a public linux/amd64 Docker image.","textPreview":"A Fireworks-first, Gemma-ready video captioning pipeline with Groq fallback for reliability, designed for the Track 2 evaluator and packa...","textChars":178,"textLines":1,"bbox":[84,316,560,88]}
+{"kind":"shape","id":"sh/0fepkzup","slide":1,"bbox":[690,92,486,520]}
+{"kind":"textbox","id":"sh/i9s36hcr","slide":1,"name":"callout","text":"Submission-ready in one sentence: upload, caption, judge, export.","textPreview":"Submission-ready in one sentence: upload, caption, judge, export.","textChars":65,"textLines":1,"bbox":[712,418,442,132]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":1,"name":"callout2","text":"The front end is for the demo. The Docker container is what the judges run.","textPreview":"The front end is for the demo. The Docker container is what the judges run.","textChars":75,"textLines":1,"bbox":[712,478,442,88]}
+{"kind":"image","id":"im/idonyd0z","slide":1,"name":"","geometry":"roundRect","alt":"review_final_01.jpg","bbox":[712,114,442,290]}
+{"kind":"notes","id":"nt/hyzq3m","slide":1,"text":""}
+{"kind":"slide","id":"sl/dgrp4l","slide":2,"title":"Why the split matters","textShapes":7}
+{"kind":"textbox","id":"sh/judg7ads","slide":2,"name":"title","text":"Why the split matters","textPreview":"Why the split matters","textChars":21,"textLines":1,"bbox":[64,54,520,80]}
+{"kind":"textbox","id":"sh/cfa9w3m9","slide":2,"name":"lede","text":"Captions stay literal and readable. Summaries carry the humor, but only after the evidence is grounded.","textPreview":"Captions stay literal and readable. Summaries carry the humor, but only after the evidence is grounded.","textChars":103,"textLines":1,"bbox":[64,126,560,72]}
+{"kind":"shape","id":"sh/1032lszq","slide":2,"bbox":[64,226,538,390]}
+{"kind":"shape","id":"sh/u18jqh0f","slide":2,"bbox":[640,226,576,390]}
+{"kind":"textbox","id":"sh/jm1cfa9w","slide":2,"name":"left-head","text":"What users get","textPreview":"What users get","textChars":14,"textLines":1,"bbox":[92,254,270,30]}
+{"kind":"textbox","id":"sh/c7u54zid","slide":2,"name":"left-body","text":"• Burned-in captioned MP4\n• SRT, VTT, TXT export\n• Editable factual base\n• Four distinct summary styles\n• Submission JSON for the judge","textPreview":"• Burned-in captioned MP4 | • SRT, VTT, TXT export | • Editable factual base | • Four distinct summary styles | • Submission JSON for the...","textChars":135,"textLines":5,"bbox":[92,302,460,240]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":2,"name":"right-head","text":"What the judge sees","textPreview":"What the judge sees","textChars":19,"textLines":1,"bbox":[668,254,240,30]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":2,"name":"right-body","text":"The evaluator gets unseen video clips, not cached answers. Every output has to work on fresh content, so the pipeline must actually understand the clip and the requested style.","textPreview":"The evaluator gets unseen video clips, not cached answers. Every output has to work on fresh content, so the pipeline must actually under...","textChars":176,"textLines":1,"bbox":[668,302,500,240]}
+{"kind":"textbox","id":"sh/nap4r65w","slide":2,"name":"note","text":"That separation is the whole product: accessibility first, creativity second.","textPreview":"That separation is the whole product: accessibility first, creativity second.","textChars":77,"textLines":1,"bbox":[668,536,460,48]}
+{"kind":"notes","id":"nt/dgrp4l","slide":2,"text":""}
+{"kind":"slide","id":"sl/km6f6m","slide":3,"title":"The product flow is simple on purpose","textShapes":4}
+{"kind":"textbox","id":"sh/1cfa9w3m","slide":3,"name":"title","text":"The product flow is simple on purpose","textPreview":"The product flow is simple on purpose","textChars":37,"textLines":1,"bbox":[64,52,720,76]}
+{"kind":"textbox","id":"sh/ulwval87","slide":3,"name":"lede","text":"The app starts as a video workspace, then turns into a results page with exports, review controls, and the timed caption track.","textPreview":"The app starts as a video workspace, then turns into a results page with exports, review controls, and the timed caption track.","textChars":127,"textLines":1,"bbox":[64,124,720,64]}
+{"kind":"textbox","id":"sh/1kre1w7m","slide":3,"name":"cap1","text":"Upload and generate","textPreview":"Upload and generate","textChars":19,"textLines":1,"bbox":[64,618,592,42]}
+{"kind":"textbox","id":"sh/uxc3ylc7","slide":3,"name":"cap2","text":"Review captions, summaries, and export readiness","textPreview":"Review captions, summaries, and export readiness","textChars":48,"textLines":1,"bbox":[684,618,532,42]}
+{"kind":"image","id":"im/ih4byhgn","slide":3,"name":"","geometry":"roundRect","alt":"review_final_02.jpg","bbox":[64,212,592,390]}
+{"kind":"image","id":"im/pkzupwb2","slide":3,"name":"","geometry":"roundRect","alt":"review_final_04.jpg","bbox":[684,212,532,390]}
+{"kind":"notes","id":"nt/km6f6m","slide":3,"text":""}
+{"kind":"slide","id":"sl/h6kcfq","slide":4,"title":"Under the hood, the pipeline stays grounded","textShapes":14}
+{"kind":"textbox","id":"sh/p0bi9s36","slide":4,"name":"title","text":"Under the hood, the pipeline stays grounded","textPreview":"Under the hood, the pipeline stays grounded","textChars":43,"textLines":1,"bbox":[64,52,780,76]}
+{"kind":"shape","id":"sh/i9s36hcr","slide":4,"bbox":[64,152,1152,420]}
+{"kind":"shape","id":"sh/bulwval8","slide":4,"bbox":[92,194,220,248]}
+{"kind":"textbox","id":"sh/032lszqt","slide":4,"name":"n-1","text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[112,214,48,48]}
+{"kind":"textbox","id":"sh/tovahoza","slide":4,"name":"h-1","text":"Upload / input","textPreview":"Upload / input","textChars":14,"textLines":1,"bbox":[112,270,180,56]}
+{"kind":"textbox","id":"sh/ixczed8v","slide":4,"name":"b-1","text":"Reads a video task and fetches the clip.","textPreview":"Reads a video task and fetches the clip.","textChars":40,"textLines":1,"bbox":[112,334,180,92]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":4,"bbox":[362,194,220,248]}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":4,"name":"n-2","text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[382,214,48,48]}
+{"kind":"textbox","id":"sh/tcj6tova","slide":4,"name":"h-2","text":"Timed captions","textPreview":"Timed captions","textChars":14,"textLines":1,"bbox":[382,270,180,56]}
+{"kind":"textbox","id":"sh/hwfyxobm","slide":4,"name":"b-2","text":"Extracts audio, normalizes timestamps, and builds subtitle segments.","textPreview":"Extracts audio, normalizes timestamps, and builds subtitle segments.","textChars":68,"textLines":1,"bbox":[382,334,180,92]}
+{"kind":"shape","id":"sh/obm58z25","slide":4,"bbox":[632,194,220,248]}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":4,"name":"n-3","text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[652,214,48,48]}
+{"kind":"textbox","id":"sh/65wjudg7","slide":4,"name":"h-3","text":"Visual context","textPreview":"Visual context","textChars":14,"textLines":1,"bbox":[652,270,180,56]}
+{"kind":"textbox","id":"sh/hk3q5o7q","slide":4,"name":"b-3","text":"Samples keyframes so the captioning model sees the scene.","textPreview":"Samples keyframes so the captioning model sees the scene.","textChars":57,"textLines":1,"bbox":[652,334,180,92]}
+{"kind":"shape","id":"sh/oza1gvy9","slide":4,"bbox":[902,194,220,248]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":4,"name":"n-4","text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[922,214,48,48]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":4,"name":"h-4","text":"Four styles","textPreview":"Four styles","textChars":11,"textLines":1,"bbox":[922,270,180,56]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":4,"name":"b-4","text":"Generates formal, sarcastic, humorous-tech, and humorous-non-tech.","textPreview":"Generates formal, sarcastic, humorous-tech, and humorous-non-tech.","textChars":66,"textLines":1,"bbox":[922,334,180,92]}
+{"kind":"textbox","id":"sh/orytsvu9","slide":4,"name":"footer","text":"The web app shows the experience. The Track 2 container runs the same intelligence headlessly.","textPreview":"The web app shows the experience. The Track 2 container runs the same intelligence headlessly.","textChars":94,"textLines":1,"bbox":[64,606,780,42]}
+{"kind":"notes","id":"nt/h6kcfq","slide":4,"text":""}
+{"kind":"slide","id":"sl/rrqb5g","slide":5,"title":"The demo looks polished because the hardest pieces are already solved","textShapes":3}
+{"kind":"textbox","id":"sh/vixczed8","slide":5,"name":"title","text":"The demo looks polished because the hardest pieces are already solved","textPreview":"The demo looks polished because the hardest pieces are already solved","textChars":69,"textLines":1,"bbox":[64,52,860,76]}
+{"kind":"textbox","id":"sh/donyd0z6","slide":5,"name":"left","text":"Each style is editable and saved back into the job output.","textPreview":"Each style is editable and saved back into the job output.","textChars":58,"textLines":1,"bbox":[92,608,500,36]}
+{"kind":"textbox","id":"sh/6psfil0r","slide":5,"name":"right","text":"That gives judges a clean review path and a stronger story.","textPreview":"That gives judges a clean review path and a stronger story.","textChars":59,"textLines":1,"bbox":[704,608,450,36]}
+{"kind":"image","id":"im/d8v6psfi","slide":5,"name":"","geometry":"roundRect","alt":"review_final_05.jpg","bbox":[64,170,1160,420]}
+{"kind":"notes","id":"nt/rrqb5g","slide":5,"text":""}
+{"kind":"slide","id":"sl/3eg1ho","slide":6,"title":"What makes this submission competitive","textShapes":6}
+{"kind":"shape","id":"sh/t47y1kre","slide":6,"bbox":[56,52,1168,608]}
+{"kind":"textbox","id":"sh/idonyd0z","slide":6,"name":"title","text":"What makes this submission competitive","textPreview":"What makes this submission competitive","textChars":38,"textLines":1,"bbox":[92,92,620,72]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":6,"name":"body","text":"• Clear separation between captions and summaries\n• Track 2 Docker entrypoint that matches the evaluator\n• Fireworks-first routing with Groq fallback for reliability\n• Grounded outputs that stay tied to transcript and visual context\n• Real demo assets, export flow, and review checklist\n• Public GitHub repo plus public linux/amd64 Docker image","textPreview":"• Clear separation between captions and summaries | • Track 2 Docker entrypoint that matches the evaluator | • Fireworks-first routing wi...","textChars":344,"textLines":6,"bbox":[92,174,560,350]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":6,"bbox":[708,124,404,432]}
+{"kind":"textbox","id":"sh/tcj6tova","slide":6,"name":"ask","text":"Submission links","textPreview":"Submission links","textChars":16,"textLines":1,"bbox":[740,164,340,84]}
+{"kind":"textbox","id":"sh/il0rqd4v","slide":6,"name":"repo","text":"GitHub\nAdithya1912/ClipForger-AMD","textPreview":"GitHub | Adithya1912/ClipForger-AMD","textChars":33,"textLines":2,"bbox":[740,252,340,84]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":6,"name":"img","text":"Docker Hub\nadithyaaaaaa/clipforger-amd:latest","textPreview":"Docker Hub | adithyaaaaaa/clipforger-amd:latest","textChars":45,"textLines":2,"bbox":[740,350,340,84]}
+{"kind":"textbox","id":"sh/032lszqt","slide":6,"name":"close","text":"By the end, judges should see a reliable captioning agent that is actually ready to score on unseen clips.","textPreview":"By the end, judges should see a reliable captioning agent that is actually ready to score on unseen clips.","textChars":106,"textLines":1,"bbox":[92,548,560,56]}
+{"kind":"notes","id":"nt/3eg1ho","slide":6,"text":""}

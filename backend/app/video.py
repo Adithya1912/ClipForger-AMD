@@ -39,13 +39,13 @@ def normalize_video(video_path: str, output_dir: Path, job_id: str) -> Path | No
         "-c:v",
         "libx264",
         "-preset",
-        "veryfast",
+        "ultrafast",
         "-crf",
-        "18",
+        "23",
         "-c:a",
         "aac",
         "-b:a",
-        "160k",
+        "128k",
         "-movflags",
         "+faststart",
         str(normalized_path),
@@ -66,9 +66,9 @@ def normalize_video(video_path: str, output_dir: Path, job_id: str) -> Path | No
             "-c:v",
             "libx264",
             "-preset",
-            "veryfast",
+            "ultrafast",
             "-crf",
-            "18",
+            "23",
             "-movflags",
             "+faststart",
             str(normalized_path),
@@ -94,13 +94,14 @@ def extract_audio(video_path: str, output_dir: Path) -> Path | None:
         return None
 
 
-def extract_keyframes(video_path: str, output_dir: Path, duration: float | None, count: int = 3) -> list[Path]:
+def extract_keyframes(video_path: str, output_dir: Path, duration: float | None, count: int = 5) -> list[Path]:
     frames_dir = output_dir / f"{Path(video_path).stem}_frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
     if duration and duration > 0:
-        timestamps = [duration * fraction for fraction in (0.2, 0.5, 0.8)][:count]
+        fractions = [i / (count + 1) for i in range(1, count + 1)]
+        timestamps = [duration * fraction for fraction in fractions][:count]
     else:
-        timestamps = [2, 8, 14][:count]
+        timestamps = [2, 5, 8, 11, 14, 17, 20][:count]
 
     frames: list[Path] = []
     for index, timestamp in enumerate(timestamps, start=1):

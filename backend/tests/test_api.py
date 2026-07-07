@@ -7,7 +7,7 @@ from app.main import app
 from app.models import CaptionSegment, CaptionStyle, Evaluation, JobRecord, StyleOutput
 from app.config import settings
 from app.llm_client import caption_llm
-from app.pipeline import _evidence_pack, _generation_prompt
+from app.pipeline import _evidence_pack, _style_specific_prompt
 from app.sound_tags import add_sound_tags
 from app.storage import save_job
 from app.transcription import base as transcription_base
@@ -272,6 +272,9 @@ def test_chunk_extraction_uses_uncompressed_wav(monkeypatch, tmp_path):
 
 def test_gemma_routes_before_regular_fireworks_and_groq(monkeypatch):
     monkeypatch.setattr(settings, "llm_provider", "auto")
+    monkeypatch.setattr(settings, "nvidia_api_key", "")
+    monkeypatch.setattr(settings, "google_api_key", "")
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
     monkeypatch.setattr(settings, "fireworks_api_key", "fw-test")
     monkeypatch.setattr(settings, "fireworks_gemma_model", "accounts/fireworks/models/gemma-test")
     monkeypatch.setattr(settings, "groq_api_key", "gsk-test")
@@ -281,6 +284,8 @@ def test_gemma_routes_before_regular_fireworks_and_groq(monkeypatch):
 
 def test_explicit_gemma_provider_requires_gemma_model(monkeypatch):
     monkeypatch.setattr(settings, "llm_provider", "gemma")
+    monkeypatch.setattr(settings, "google_api_key", "")
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
     monkeypatch.setattr(settings, "fireworks_api_key", "fw-test")
     monkeypatch.setattr(settings, "fireworks_gemma_model", "")
 
@@ -310,16 +315,19 @@ def test_provider_errors_are_kept_when_fallback_succeeds(monkeypatch):
         return '{"formal": {}, "sarcastic": {}, "humorous_tech": {}, "humorous_non_tech": {}}'
 
     monkeypatch.setattr(settings, "llm_provider", "auto")
+    monkeypatch.setattr(settings, "nvidia_api_key", "")
+    monkeypatch.setattr(settings, "google_api_key", "")
     monkeypatch.setattr(settings, "fireworks_api_key", "fw-test")
     monkeypatch.setattr(settings, "fireworks_gemma_model", "accounts/fireworks/models/gemma-test")
     monkeypatch.setattr(settings, "groq_api_key", "gsk-test")
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
     monkeypatch.setattr(caption_llm, "_complete_with_provider", fake_provider)
 
     _, provider = caption_llm.complete_json([], {})
 
     assert calls == ["fireworks_gemma", "fireworks"]
     assert provider == "fireworks"
-    assert caption_llm.last_provider_errors == ["fireworks_gemma: 404 model unavailable"]
+    assert "fireworks_gemma: 404 model unavailable" in caption_llm.last_provider_errors
 
 
 def test_provider_diagnostics_include_skipped_fireworks(monkeypatch):
@@ -344,23 +352,21 @@ def test_evidence_pack_prefers_clean_timed_lines():
     )
 
     assert "James Hunt is a long way up the road." in evidence
-    assert "[inaudible]" not in evidence
+    assert "[inaudible]" not in evidence.split("Audio events")[0]
     assert "Go!" in evidence
     assert "A race car scene" in evidence
 
 
-def test_generation_prompt_requests_fuller_outputs():
-    prompt = _generation_prompt("transcript", "visual", "evidence")
+def test_style_specific_prompt_includes_few_shot_and_style_guide():
+    prompt = _style_specific_prompt(CaptionStyle.sarcastic, "transcript", "visual", "evidence")
     combined = " ".join(message["content"] for message in prompt)
 
+    assert "sarcastic" in combined
+    assert "dry-witted commentator" in combined
+    assert "styled_caption" in combined
+    assert "summary" in combined
     assert "36-50 words" in combined
-    assert "80-110 words" in combined
-    assert "3-4 sentences" in combined
-    assert "mean-but-not-hurtful" in combined
-    assert "mocks the situation rather than a person's body, pain, identity, or trauma" in combined
-    assert "may lightly tease a person's choices or overreaction without being cruel" in combined
-    assert "Keep rhetorical devices mutually exclusive" in combined
-    assert "sarcastic uses irony and situational mockery with no tech metaphors" in combined
+    assert "under 100 words" in combined
 
 
 def test_video_normalization_resets_timestamps(monkeypatch, tmp_path):

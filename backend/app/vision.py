@@ -29,13 +29,16 @@ def _describe_with_groq(frame_paths: list[Path]) -> str:
         {
             "type": "text",
             "text": (
-                "Describe the visible scene across these video keyframes for caption generation. "
-                "Focus on people, setting, actions, objects, mood, and any visual joke. "
-                "Do not mention that these are frames or images."
+                "You are a forensic video analyst. Extract specific visual facts from these video keyframes for caption generation. "
+                "Report: setting/background, number and appearance of people/animals, their actions and expressions, "
+                "visible objects, colors, lighting, on-screen text, mood, and any notable events. "
+                "Be specific (e.g. 'a woman in a red jacket' not just 'a person'). "
+                "Output 3-5 concise bullet points. Do not mention these are frames."
             ),
         }
     ]
-    for path in frame_paths[:3]:
+    sorted_frames = sorted(frame_paths, key=lambda p: p.stat().st_size, reverse=True)[:3]
+    for path in sorted_frames:
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         content.append(
             {
@@ -53,8 +56,8 @@ def _describe_with_groq(frame_paths: list[Path]) -> str:
         json={
             "model": settings.groq_vision_model,
             "messages": [{"role": "user", "content": content}],
-            "temperature": 0.2,
-            "max_tokens": 240,
+            "temperature": 0.15,
+            "max_tokens": 300,
         },
         timeout=120,
     )

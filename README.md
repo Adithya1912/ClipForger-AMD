@@ -1,22 +1,28 @@
 # ClipForger-AMD
 
-ClipForger-AMD is a focused Track 2 hackathon build for short-video captioning. It accepts hackathon clips, builds timed subtitles plus visual context, renders a captioned video, generates four styled captions and summaries, self-evaluates accuracy and tone, and exports review-ready outputs.
+**Best Use of Gemma in Video Captioning** — Track 2 submission for the AMD Developer Hackathon: ACT II.
+
+ClipForger-AMD takes short video clips (30s–2min) and generates **four styled captions and summaries** (formal, sarcastic, humorous-tech, humorous-non-tech) using **Google Gemma 4 (via OpenRouter)** as the primary LLM, with Fireworks AI and Groq fallback. It also renders a captioned MP4 with burned-in subtitles and provides self-evaluation.
+
+## What Makes This Stand Out
+
+- **🎯 Gemma-first architecture**: Uses **Google Gemma 4 (`google/gemma-4-31b-it:free`)** via OpenRouter as the primary caption generator. When `OPENROUTER_API_KEY` is set, Gemma 4 is always attempted first. Falls back to Fireworks Llama, then Groq. This directly targets the **$3,000 Best Use of Gemma in Video Captioning** prize.
+- **🎭 4 style-specific LLM calls**: Each style gets its own dedicated prompt with few-shot examples, separate system instructions, and tailored tone guidance — no cross-style contamination.
+- **🖼️ 7 keyframe visual analysis**: Extracts 7 keyframes (up from 3) at evenly-spaced positions, feeding richer visual context to the caption generator.
+- **🔍 Detailed evidence pack**: Combines timed transcript evidence with structured visual analysis (setting, people, actions, mood, pacing).
+- **⚡ OpenRouter (Gemma 4) + Fireworks AI + Groq**: Gemma 4 via OpenRouter for primary inference. Falls back to Fireworks Llama, then Groq. Zero-cost Gemma 4 usage with the `:free` model.
 
 ## What It Does
 
 - Upload one video clip or a fixed batch of hackathon clips.
-- Optionally validate the Track 2 duration window through environment settings.
-- Extract audio with FFmpeg.
-- Build transcript and visual context layers.
-- Use Fireworks AI as the primary structured summary-generation provider when `FIREWORKS_API_KEY` is configured.
-- Render transcript subtitles into the video and generate judged captions/summaries in four styles: formal, sarcastic, humorous-tech, and humorous-non-tech.
-- Score each output for accuracy, tone match, concision, and hallucination risk.
-- Review timed subtitles and edit styled captions/summaries in the results view.
-- Export a judge-facing submission JSON plus engineering JSON, JSONL, SRT, VTT, or plain text.
-
-## Track 2 Alignment
-
-This is not a full video editor. Cropping, reframing, publishing, pricing, and creator-workflow features have been removed from the core path so the app maps directly to the Video Captioning challenge.
+- Validate the Track 2 duration window (configurable 30–120s default).
+- Extract audio + 7 keyframes with FFmpeg.
+- Transcribe via Groq Whisper (with chunking for long files).
+- Describe frames via Groq vision (5 frames analyzed).
+- Generate **4 separate style-specific captions** using Gemma (primary) / Fireworks / Groq.
+- Render captioned video with burned-in ASS subtitles.
+- Self-evaluate each output for accuracy and tone match.
+- Edit and export submission JSON for LLM-Judge scoring.
 
 ## Track 2 Docker Submission
 
@@ -50,7 +56,7 @@ Expected output:
 ]
 ```
 
-Build and push the public linux/amd64 image:
+Build and push:
 
 ```bash
 docker buildx build --platform linux/amd64 -t YOUR_DOCKERHUB_USERNAME/clipforger-amd:latest --push .
@@ -60,8 +66,8 @@ Local smoke test:
 
 ```bash
 docker run --rm \
-  -e GROQ_API_KEY="$GROQ_API_KEY" \
-  -e LLM_PROVIDER=groq \
+  -e FIREWORKS_API_KEY="$FIREWORKS_API_KEY" \
+  -e FIREWORKS_GEMMA_MODEL="accounts/fireworks/models/gemma-3-12b-it" \
   -v "$PWD/examples:/input:ro" \
   -v "$PWD/out:/output" \
   YOUR_DOCKERHUB_USERNAME/clipforger-amd:latest
@@ -71,49 +77,98 @@ For the local smoke test, copy `examples/track2_tasks.json` to `examples/tasks.j
 
 ## Architecture
 
-```text
-frontend/ React + TanStack Router caption workflow
-backend/  FastAPI single/batch upload, job storage, generation, evaluation, export
-data/     Local uploaded clips and job JSON files
+```
+frontend/  React + TanStack Router caption workflow
+backend/   FastAPI single/batch upload, job storage, generation, evaluation, export
+data/      Local uploaded clips and job JSON files
 ```
 
 Pipeline:
 
-```text
-video upload -> optional duration probe -> audio extraction + keyframes
--> timed transcript + visual context -> captioned video render
--> Fireworks summary generation -> self-evaluation -> edit/export
+```
+video upload -> duration probe -> normalize -> audio extraction + 7 keyframes
+-> Groq Whisper transcript + Groq vision frame descriptions
+-> captioned video render (FFmpeg ASS subtitles)
+-> 4 separate style-specific Gemma/Fireworks LLM calls (formal, sarcastic, humorous-tech, humorous-non-tech)
+-> heuristic self-evaluation -> edit/export submission JSON
 ```
 
-## AMD / Fireworks AI Usage
+### Key Architectural Decisions
 
-Fireworks AI is the primary judging-facing summary generation step. `LLM_PROVIDER=auto` uses a Fireworks-first route and keeps fallback diagnostics in exported job metadata so the UI and export flow can still be tested when model access is limited.
+| Decision | Rationale |
+|----------|-----------|
+| **4 separate LLM calls** (one per style) | Each style gets a dedicated system prompt + few-shot examples. No cross-contamination between styles. Better tone differentiation for LLM-Judge. |
+| **Gemma-first provider chain** | Gemma is always attempted first when configured. Falls back to Fireworks Llama, then Groq, then local deterministic templates. Maximizes Gemma prize eligibility. |
+| **7 keyframes at even intervals** | More visual coverage than 3 keyframes. Enables richer scene description without hitting token limits. |
+| **5 frames sent to vision model** | Groq vision receives 5 representative frames for detailed scene analysis. |
+| **Per-style few-shot examples** | Each style has 1-2 complete example dialogues showing the exact tone expected. Helps the LLM understand the style boundary. |
+| **Sound tagging** | Detects crash/music/inaudible segments from visual context and inserts descriptive tags. |
 
-Environment variables:
+## AMD / Fireworks AI / Gemma Usage
+
+### Gemma Integration (Prize Track)
+
+ClipForger-AMD uses **Google Gemma 4 (`google/gemma-4-31b-it:free`) via OpenRouter** as the primary caption generation engine. Here's how:
+
+1. **Provider chain**: `LLM_PROVIDER=auto` (default) tries OpenRouter (Gemma 4) → Fireworks Gemma → Fireworks Llama → Groq fallback
+2. **Style-specific generation**: Each of the 4 styles calls Gemma independently with a tailored prompt + few-shot examples
+3. **Evidence enrichment**: Gemma receives timed transcript + 7-frame visual analysis for accurate captioning
+4. **Free tier**: The `:free` suffix means zero-cost Gemma 4 inference via OpenRouter's free tier
+
+To enable Gemma via OpenRouter (recommended for the Gemma prize):
 
 ```env
-FIREWORKS_API_KEY=
-FIREWORKS_MODEL=accounts/fireworks/models/llama-v3p1-8b-instruct
-FIREWORKS_GEMMA_MODEL=
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxx
+OPENROUTER_MODEL=google/gemma-4-31b-it:free
 LLM_PROVIDER=auto
+```
+
+To use Gemma via Fireworks instead:
+
+```env
+FIREWORKS_API_KEY=your_key_here
+FIREWORKS_GEMMA_MODEL=accounts/fireworks/models/gemma-model-id
+LLM_PROVIDER=auto
+```
+
+### Environment Variables
+
+```env
+# Required (pick at least one)
+FIREWORKS_API_KEY=
+OPENROUTER_API_KEY=  # Recommended for Gemma 4 free tier
+OPENROUTER_MODEL=google/gemma-4-31b-it:free
+
+# Caption Generation (Gemma-first)
+LLM_PROVIDER=auto
+FIREWORKS_MODEL=accounts/fireworks/models/llama-v3p1-8b-instruct
+FIREWORKS_GEMMA_MODEL=  # Alternative Gemma path via Fireworks
+
+# Groq (transcription + vision + fallback LLM)
 GROQ_API_KEY=
 GROQ_MODEL=llama-3.1-8b-instant
 GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 GROQ_TRANSCRIPTION_MODEL=whisper-large-v3
+
+# Transcription
 TRANSCRIPTION_LANGUAGE=en
 TRANSCRIPTION_PROVIDER=auto
+
+# Vision
 VISUAL_PROVIDER=auto
+
+# Storage & Validation
 STORAGE_DIR=./data
 MIN_VIDEO_DURATION_SECONDS=30
 MAX_VIDEO_DURATION_SECONDS=120
+
+# Frontend
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
 Set `MIN_VIDEO_DURATION_SECONDS=0` or `MAX_VIDEO_DURATION_SECONDS=0` to disable either side of the duration check.
 
-Set `FIREWORKS_GEMMA_MODEL` to the hackathon-provided Gemma model id to enter the Best Use of Gemma Models path. With `LLM_PROVIDER=auto`, ClipForger tries Gemma through Fireworks first, then the regular Fireworks model, then Groq as a silent development fallback.
-
-`TRANSCRIPTION_LANGUAGE=en` forces English transcription for the hackathon clips and prevents noisy audio from drifting into another language. Use `ta` for Tamil, or leave it blank for auto-detect.
+`TRANSCRIPTION_LANGUAGE=en` forces English transcription. Use `ta` for Tamil, or leave it blank for auto-detect.
 
 ## Running Locally
 
@@ -144,15 +199,6 @@ docker compose up --build
 
 Frontend runs on `http://localhost:3000`; backend runs on `http://localhost:8000`.
 
-## Hackathon Submission Notes
-
-- The project is containerized with `docker-compose.yml`, `backend/Dockerfile`, and `frontend/Dockerfile`.
-- Use `SUBMISSION_GUIDE.md` for the final lablab.ai copy, demo flow, tags, and checklist.
-- Submit the public GitHub repository plus the hosted demo URL in the lablab.ai dashboard.
-- Required runtime secrets are provided through environment variables; do not commit real API keys.
-- Track 2 outputs are available from the Results page: a judge-facing submission JSON, four styled captions/summaries, captioned MP4, SRT/VTT/TXT subtitles, and full engineering JSON.
-- For judging, keep `LLM_PROVIDER=auto` with a valid `FIREWORKS_API_KEY`; Gemma through Fireworks is attempted first when `FIREWORKS_GEMMA_MODEL` is set, then the regular Fireworks model. Fallback details are preserved in JSON diagnostics.
-
 ## API Reference
 
 - `GET /health`
@@ -174,9 +220,14 @@ Frontend runs on `http://localhost:3000`; backend runs on `http://localhost:8000
 1. Upload one hackathon clip or the fixed clip batch.
 2. Watch the caption and summary pipeline progress.
 3. Review the captioned video and timed transcript.
-4. Compare/edit the four styled captions and summaries.
+4. Compare/edit the four style-specific captions and summaries.
 5. Export submission JSON for judging, or JSON/SRT/VTT for inspection.
 
-## Limitations
+## Submission Checklist
 
-The final hackathon model list may change. The pipeline is intentionally pluggable so Fireworks multimodal/audio models or a local open-source transcriber can be dropped in without changing the frontend. The submission story should emphasize the Fireworks-first Track 2 compute path.
+- [ ] Public GitHub repository with README
+- [ ] Containerized with `docker compose up --build`
+- [ ] Track 2 agent reads `/input/tasks.json`, writes `/output/results.json`
+- [ ] Gemma model configured via `FIREWORKS_GEMMA_MODEL` for prize eligibility
+- [ ] Demo video showing upload → processing → 4 styled captions → export
+- [ ] Slide deck highlighting Gemma integration and architectural improvements

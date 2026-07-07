@@ -8,6 +8,8 @@ services:
       FIREWORKS_API_KEY: ${FIREWORKS_API_KEY:-}
       FIREWORKS_MODEL: ${FIREWORKS_MODEL:-accounts/fireworks/models/llama-v3p1-8b-instruct}
       FIREWORKS_GEMMA_MODEL: ${FIREWORKS_GEMMA_MODEL:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemma-4-31b-it:free}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
       GROQ_VISION_MODEL: ${GROQ_VISION_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}

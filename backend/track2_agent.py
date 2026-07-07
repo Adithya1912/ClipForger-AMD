@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 
-from app.caption_styles import STYLE_GUIDE
+from app.caption_styles import STYLE_GUIDE, STYLE_SYSTEM_PROMPTS, STYLE_FEW_SHOT
 from app.config import settings
 from app.llm_client import caption_llm
 from app.models import CaptionSegment, CaptionStyle
@@ -28,7 +30,15 @@ def main() -> int:
         tasks = _read_tasks(INPUT_PATH)
         WORK_DIR.mkdir(parents=True, exist_ok=True)
         OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        results = [_process_task(task) for task in tasks]
+        t0 = time.time()
+        results: list[dict] = [None] * len(tasks)
+        with ThreadPoolExecutor(max_workers=min(3, len(tasks))) as ex:
+            futures = {ex.submit(_process_task, task): idx for idx, task in enumerate(tasks)}
+            for future in as_completed(futures):
+                idx = futures[future]
+                results[idx] = future.result()
+        elapsed = time.time() - t0
+        print(f"Processed {len(tasks)} clips in {elapsed:.0f}s", file=sys.stderr)
         OUTPUT_PATH.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
         return 0
     except Exception as exc:
@@ -106,49 +116,48 @@ def _generate_captions(
     visual_summary: str,
 ) -> dict[str, str]:
     fallback = {style: _fallback_caption(style, transcript, visual_summary) for style in requested_styles}
-    prompt = _caption_prompt(requested_styles, transcript, caption_track, visual_summary)
-    raw, _provider = caption_llm.complete_json(prompt, fallback)
-    captions: dict[str, str] = {}
-    for style in requested_styles:
-        value = raw.get(style, fallback[style])
-        if isinstance(value, dict):
-            value = value.get("caption") or value.get("styled_caption") or value.get("summary")
-        caption = " ".join(str(value or fallback[style]).split())
-        captions[style] = caption or fallback[style]
-    return captions
-
-
-def _caption_prompt(
-    requested_styles: list[str],
-    transcript: str,
-    caption_track: list[CaptionSegment],
-    visual_summary: str,
-) -> list[dict[str, str]]:
     evidence = _evidence_pack(transcript, caption_track, visual_summary)
-    style_notes = "\n".join(f"- {style}: {STYLE_GUIDE[CaptionStyle(style)]}" for style in requested_styles)
-    return [
-        {
-            "role": "system",
-            "content": (
-                "Return strict JSON only. You are a Track 2 video captioning agent. "
-                "Generate one accurate, standalone caption for each requested style. "
-                "Each caption should be 24-40 words: specific enough for an LLM judge, but concise. "
-                "Do not mention transcripts, keyframes, providers, APIs, prompts, or missing context. "
-                "Stay grounded in the evidence. If something is uncertain, phrase it cautiously. "
-                "Sarcastic means dry, ironic, and lightly mocking without cruelty. "
-                "humorous_tech must use technology, software, AI, or programming references. "
-                "humorous_non_tech must be funny without technical jargon."
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Requested styles:\n{style_notes}\n\nEvidence:\n{evidence}\n\n"
-                f"Return JSON with exactly these keys: {', '.join(requested_styles)}. "
-                "Each value must be a caption string, not an object."
-            ),
-        },
-    ]
+    transcript_context = (
+        "Transcript is unavailable."
+        if transcript.startswith(NO_TRANSCRIPT)
+        else transcript
+    )
+    visual_context = (
+        "Visual context unavailable."
+        if not visual_summary or visual_summary.startswith(NO_VISUAL_CONTEXT)
+        else visual_summary
+    )
+
+    captions: dict[str, str] = {}
+    for style_key in requested_styles:
+        try:
+            style = CaptionStyle(style_key)
+            system_prompt = STYLE_SYSTEM_PROMPTS[style]
+            few_shot = STYLE_FEW_SHOT.get(style, [])
+            messages = [
+                {"role": "system", "content": system_prompt + (
+                    "\n\nReturn strict JSON only with key: styled_caption. "
+                    "The value must be one concise caption string (24-40 words), not an object. "
+                    "Stay grounded in the evidence. Do not mention transcripts, keyframes, or internal details."
+                )},
+            ]
+            for shot in few_shot:
+                messages.append(shot)
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"Evidence pack:\n{evidence}\n\n"
+                    f"Generate a {style_key} caption."
+                ),
+            })
+            raw, _provider = caption_llm.complete_json(messages, {"styled_caption": fallback[style_key]})
+            value = raw.get("styled_caption") or raw.get(style_key) or fallback[style_key]
+            caption = " ".join(str(value).split())
+            captions[style_key] = caption or fallback[style_key]
+        except Exception:
+            captions[style_key] = fallback[style_key]
+
+    return captions
 
 
 def _evidence_pack(transcript: str, caption_track: list[CaptionSegment], visual_summary: str) -> str:
