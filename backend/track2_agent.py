@@ -51,7 +51,7 @@ def main() -> int:
 def _read_tasks(path: Path) -> list[dict]:
     if not path.exists():
         raise FileNotFoundError(f"Missing required input file: {path}")
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(payload, list):
         raise ValueError("/input/tasks.json must contain a JSON array")
     return payload
